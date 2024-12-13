@@ -8,38 +8,65 @@ import Link from 'next/link';
 interface Client {
  id: number;
  name: string;
+ email: string;
 }
 
 export default function Home() {
  const [clients, setClients] = useState<Client[]>([]);
  const [newClientName, setNewClientName] = useState('');
+ const [loading, setLoading] = useState(false);
 
- // Load clients from localStorage on component mount
+ // Fetch clients from the API on component mount
  useEffect(() => {
-  const storedClients = localStorage.getItem('clients');
-  if (storedClients) {
-   setClients(JSON.parse(storedClients));
-  }
+  const fetchClients = async () => {
+   try {
+    const response = await fetch('/api/clients');
+    if (response.ok) {
+     const data: Client[] = await response.json();
+     setClients(data);
+    } else {
+     console.error('Failed to fetch clients.');
+    }
+   } catch (error) {
+    console.error('Error fetching clients:', error);
+   }
+  };
+
+  fetchClients();
  }, []);
 
- // Save clients to localStorage whenever clients state changes
- useEffect(() => {
-  localStorage.setItem('clients', JSON.stringify(clients));
- }, [clients]);
-
- const createClient = () => {
+ // Function to create a new client via the API
+ const createClient = async () => {
   if (newClientName.trim() === '') {
-   alert('Please enter a client name.');
+   alert('Please enter both client name.');
    return;
   }
 
-  const newClient: Client = {
-   id: Date.now(),
-   name: newClientName.trim(),
-  };
+  setLoading(true);
 
-  setClients((prevClients) => [...prevClients, newClient]);
-  setNewClientName('');
+  try {
+   const response = await fetch('/api/clients', {
+    method: 'POST',
+    headers: {
+     'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name: newClientName.trim() }),
+   });
+
+   if (response.ok) {
+    const createdClient: Client = await response.json();
+    setClients((prevClients) => [...prevClients, createdClient]);
+    setNewClientName('');
+   } else {
+    const errorData = await response.json();
+    alert(errorData.error || 'Failed to create client.');
+   }
+  } catch (error) {
+   console.error('Error creating client:', error);
+   alert('An error occurred while creating the client.');
+  } finally {
+   setLoading(false);
+  }
  };
 
  return (
@@ -59,9 +86,10 @@ export default function Home() {
       />
       <button
        onClick={createClient}
-       className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+       disabled={loading}
+       className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
-       Create
+       {loading ? 'Creating...' : 'Create'}
       </button>
      </div>
     </div>
@@ -75,7 +103,7 @@ export default function Home() {
        onChange={(e) => {
         const selectedId = Number(e.target.value);
         if (!isNaN(selectedId)) {
-         // No programmatic routing here; instead, users click the Link
+         // No programmatic routing here; users click the Link
         }
        }}
        className="flex-grow border rounded px-2 py-1 mr-2"
