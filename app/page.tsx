@@ -135,7 +135,7 @@ export default function Home() {
          href={`/clients/${client.id}`}
          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 inline-block"
         >
-         Open {client.name}
+         {client.name}
         </Link>
        </li>
       ))}

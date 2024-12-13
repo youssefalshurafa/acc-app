@@ -1,5 +1,3 @@
-// app/(components)/AccountingTable.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -27,6 +25,15 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
  const [saving, setSaving] = useState(false);
 
  const router = useRouter();
+
+ // Helper function to format numbers
+ const formatNumber = (num: number): string => {
+  return num.toLocaleString(undefined, {
+   minimumFractionDigits: 2,
+   maximumFractionDigits: 2,
+  });
+ };
+
  // Fetch transactions from the API on component mount and when clientId changes
  useEffect(() => {
   const fetchTransactions = async () => {
@@ -60,13 +67,23 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
     if (tx.id === id) {
      const updatedTx = { ...tx };
 
-     if (field === 'date' || field === 'description') {
-      (updatedTx as any)[field] = value;
+     if (field === 'date') {
+      // Basic validation for DD/MM/YYYY format
+      const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+      if (dateRegex.test(value)) {
+       updatedTx.date = value;
+      } else {
+       // Optionally, you can set an error state or provide user feedback
+       console.warn('Invalid date format. Use DD/MM/YYYY.');
+       return tx; // Do not update if invalid
+      }
+     } else if (field === 'description') {
+      updatedTx.description = value;
      } else {
       let numericValue = parseFloat(value) || 0;
       // Prevent negative numbers
       numericValue = numericValue < 0 ? 0 : numericValue;
-      (updatedTx as any)[field] = numericValue;
+      updatedTx[field] = numericValue;
      }
 
      // Recalculate total as (Debit - Credit) * Price
@@ -83,11 +100,14 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
  };
 
  // Function to add a new transaction row with a temporary negative ID
+
  const addRow = () => {
   const tempId = -Date.now(); // Ensures a unique negative ID
+  const todayDate = getTodayDate(); // Get today's date in DD/MM/YYYY
+
   const newTx: Transaction = {
    id: tempId,
-   date: '',
+   date: todayDate, // Set date to today's date in DD/MM/YYYY
    description: '',
    credit: 0,
    debit: 0,
@@ -170,6 +190,21 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
    setSaving(false);
   }
  };
+ // Helper function to get today's date
+ const getTodayDate = (): string => {
+  const today = new Date();
+  const day = String(today.getDate()).padStart(2, '0');
+  const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const year = today.getFullYear();
+  return `${day}/${month}/${year}`;
+ };
+
+ // Compute cumulative totals
+ const cumulativeTotals = transactions.reduce((acc, tx, index) => {
+  const previousTotal = index === 0 ? 0 : acc[index - 1];
+  acc.push(previousTotal + tx.total);
+  return acc;
+ }, [] as number[]);
 
  const grandTotal = transactions.reduce((acc, tx) => acc + tx.total, 0);
 
@@ -194,10 +229,10 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
     <table className="min-w-full border border-gray-300 table-auto">
      <thead className="bg-gray-100">
       <tr>
-       {['Date', 'Description', 'Credit', 'Debit', 'Price', 'Total'].map((heading) => (
+       {['Date', 'Description', 'Credit', 'Debit', 'Price', 'Total', 'Cumulative Total'].map((heading) => (
         <th
          key={heading}
-         className="border border-gray-300 px-4 py-2 text-left font-medium text-sm"
+         className="border border-gray-300 px-4 py-2 text-center font-medium text-sm"
         >
          {heading}
         </th>
@@ -210,54 +245,69 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
         key={tx.id}
         className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-green-100 transition`}
        >
+        {/* Date Column */}
         <td className="border border-gray-300 px-4 py-1">
          <input
-          type="date"
+          type="text"
           value={tx.date}
           onChange={(e) => handleChange(tx.id, 'date', e.target.value)}
-          className="w-full bg-transparent text-sm border-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full bg-transparent text-sm text-center border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
+          placeholder="DD/MM/YYYY"
          />
         </td>
+
+        {/* Description Column */}
         <td className="border border-gray-300 px-4 py-1">
          <input
           type="text"
           value={tx.description}
           onChange={(e) => handleChange(tx.id, 'description', e.target.value)}
-          className="w-full bg-transparent text-sm border-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full bg-transparent text-sm text-center border-none focus:outline-none focus:ring-2 focus:ring-green-500"
           placeholder="Description"
          />
         </td>
-        <td className="border border-gray-300 px-4 py-1">
+
+        {/* Credit Column - Always Red */}
+        <td className="border border-gray-300 px-4 py-1 text-red-500">
          <input
           type="number"
           value={tx.credit}
           onChange={(e) => handleChange(tx.id, 'credit', e.target.value)}
-          className="w-full bg-transparent text-sm border-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full bg-transparent text-sm text-center border-none focus:outline-none focus:ring-2 focus:ring-green-500"
           min="0"
           step="0.01"
          />
         </td>
-        <td className="border border-gray-300 px-4 py-1">
+
+        {/* Debit Column - Always Green */}
+        <td className="border border-gray-300 px-4 py-1 text-green-500">
          <input
           type="number"
           value={tx.debit}
           onChange={(e) => handleChange(tx.id, 'debit', e.target.value)}
-          className="w-full bg-transparent text-sm border-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full bg-transparent text-sm text-center border-none focus:outline-none focus:ring-2 focus:ring-green-500"
           min="0"
           step="0.01"
          />
         </td>
+
+        {/* Price Column */}
         <td className="border border-gray-300 px-4 py-1">
          <input
           type="number"
           value={tx.price}
           onChange={(e) => handleChange(tx.id, 'price', e.target.value)}
-          className="w-full bg-transparent text-sm border-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full bg-transparent text-sm text-center border-none focus:outline-none focus:ring-2 focus:ring-green-500"
           min="0"
           step="0.01"
          />
         </td>
-        <td className="border border-gray-300 px-4 py-1 text-right">{tx.total.toFixed(2)}</td>
+
+        {/* Total Column - Conditional Styling */}
+        <td className={`border border-gray-300 px-4 py-1 text-right ${tx.total < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatNumber(tx.total)}</td>
+
+        {/* Cumulative Total Column - Conditional Styling */}
+        <td className={`border border-gray-300 px-4 py-1 text-right ${cumulativeTotals[idx] < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatNumber(cumulativeTotals[idx])}</td>
        </tr>
       ))}
      </tbody>
@@ -269,7 +319,8 @@ export default function AccountingTable({ clientId, clientName }: AccountingTabl
        >
         Grand Total:
        </td>
-       <td className="border border-gray-300 px-4 py-2 font-semibold text-right bg-gray-100">{grandTotal.toFixed(2)}</td>
+       {/* Total Grand Total Column */}
+       <td className={`border border-gray-300 px-4 py-2 font-semibold text-right bg-gray-100 ${grandTotal < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatNumber(grandTotal)}</td>
       </tr>
      </tfoot>
     </table>
