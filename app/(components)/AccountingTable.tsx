@@ -104,7 +104,7 @@ const AccountingTable: React.FC<AccountingTableProps> = ({ clientId }) => {
        <th className="py-2 px-4 border-b">Credit</th>
        <th className="py-2 px-4 border-b">Debit</th>
        <th className="py-2 px-4 border-b">Price</th>
-       <th className="py-2 px-4 border-b">Total</th>
+       <th className="py-2 px-4 border-b">Totalss</th>
       </tr>
      </thead>
      <tbody>
